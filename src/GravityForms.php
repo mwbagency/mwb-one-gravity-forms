@@ -2,28 +2,21 @@
 
 namespace MWBDigital\GravityForms;
 
-use \App\Theme;
-use \App\Site;
-
 /**
  * Custom "Gravity Forms" functionality
  */
 class GravityForms
 {
-
-    protected $required_plugins = ['gravityforms/gravityforms.php'];
-
     /**
-     * Setup hooks for MWB plugin
+     * Setup integration
      */
     public function __construct()
     {
         // Check required WP plugins are enabled
-        if (!self::has_required_plugins(get_class($this), $this->required_plugins)) {
+        if (!self::has_required_plugins(get_class($this), ['gravityforms/gravityforms.php'])) {
             return;
         }
 
-        // Allow MWB plugin to setup their specific hooks
         $this->init();
     }
 
@@ -42,21 +35,22 @@ class GravityForms
     /**
      * Whether given WP plugins are enabled
      *
-     * @param string $class_name MWB plugin class name
+     * @param string $class_name Class name
      * @param array $required_plugins List of WP plugin main file paths
      * @return boolean
      */
     private static function has_required_plugins(string $class_name, array $required_plugins = []): bool
     {
+        $missing_plugins = array_diff($required_plugins, (array)get_option('active_plugins', []));
         // Skip if there's no missing plugins
-        if (false == ($missing_plugins = Site::get_missing_plugins($required_plugins))) {
+        if (empty($missing_plugins)) {
             return true;
         }
 
         // Log missing plugins
         if(wp_get_environment_type() !== 'production') {
             foreach ($missing_plugins as $missing_plugin) {
-                error_log("Warning: '$class_name' plugin requires inactive WP '$missing_plugin' plugin");
+                error_log("Warning: '$class_name' package requires inactive '$missing_plugin' plugin");
             }
         }
 
@@ -72,7 +66,7 @@ class GravityForms
     public static function add_button_class_fields(array $fields, $form): array
     {
         $colours = [];
-        $theme_colours = Theme::get_theme_colour_choices();
+        $theme_colours = self::get_theme_colour_choices();
         foreach ($theme_colours as $key => $label) {
             $colours[] = [
                 'label' => $label,
@@ -81,7 +75,7 @@ class GravityForms
         }
 
         $styles = [];
-        $theme_styles = Theme::get_button_styles();
+        $theme_styles = self::get_button_styles();
         foreach ($theme_styles as $key => $label) {
             $styles[] = [
                 'label' => $label,
@@ -145,6 +139,70 @@ class GravityForms
 
         $new_button->setAttribute('class', $classes);
         return $dom->saveHtml($new_button);
+    }
+
+    /**
+     * Get button style choices
+     *
+     * @return array List of button styles (e.g. [ 'outlined' => 'Outlined' ])
+     */
+    public static function get_button_styles(): array
+    {
+        return apply_filters('one/theme/button_styles', [
+            'clear' => 'Clear',
+            'expanded' => 'Expanded',
+            'outlined' => 'Outlined',
+            'big' => 'Big',
+        ]);
+    }
+
+    /**
+     * Get theme colours (while allowing for child theme to alter them)
+     *
+     * @param boolean $label Use this to retrieve a specific colour if present
+     * @return (array|string)
+     */
+    public static function get_theme_colours($label = false)
+    {
+        // get theme colours (or use child's ones if given)
+        $colours = apply_filters('one/theme/colours', [
+            'primary' => get_theme_mod('primary_colour', '#000'),
+            'secondary' => get_theme_mod('secondary_colour', '#666'),
+            'tertiary' => get_theme_mod('tertiary_colour', '#b5b5b5'),
+            'dark' => get_theme_mod('dark_colour', '#21111E'),
+            'light' => get_theme_mod('light_colour', '#fff'),
+            'bg' => get_theme_mod('bg_colour', '#fff'),
+        ]);
+
+        if (!!$label) {
+            if (array_key_exists($label, $colours)) {
+                return $colours[$label];
+            }
+            return '';
+        }
+
+        return $colours;
+    }
+
+    /**
+     * Get theme colours for a dropdown
+     *
+     * @return array List of theme colours by key and label
+     */
+    public static function get_theme_colour_choices(): array
+    {
+        $colours = self::get_theme_colours();
+
+        // Convert colours into dropdown choices
+        $choices = [];
+        foreach ($colours as $key => $colour) {
+            // Convert slug string to pretty title
+            $label = ucfirst(str_replace('-', ' ', $key));
+
+            $choices[$key] = $label;
+        }
+
+        return $choices;
     }
 
 }

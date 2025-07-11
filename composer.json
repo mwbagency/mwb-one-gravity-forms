@@ -11,8 +11,7 @@
     "require": {},
     "autoload": {
         "psr-4": {
-            "MWBDigital\\GravityForms\\": "src/",
-            "App\\": "includes/"
+            "MWBDigital\\GravityForms\\": "src/"
         },
         "files": [
             "src/bootstrap.php"
