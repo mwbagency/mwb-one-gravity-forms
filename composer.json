@@ -13,6 +13,9 @@
         "psr-4": {
             "MWBDigital\\GravityForms\\": "src/",
             "App\\": "includes/"
-        }
+        },
+        "files": [
+            "src/bootstrap.php"
+        ]
     }
 }
