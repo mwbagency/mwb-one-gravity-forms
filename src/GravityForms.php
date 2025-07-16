@@ -30,6 +30,8 @@ class GravityForms
         add_filter('gform_form_settings_fields', [__CLASS__, 'add_button_class_fields'], 10, 2);
         add_filter('gform_submit_button', [__CLASS__, 'apply_submit_button_classes'], 10, 2);
         add_filter('gform_disable_css', '__return_true');
+        add_filter('allowed_block_types_all', [__CLASS__, 'disallow_form_block'], 10, 2);
+        add_action('wp_loaded', [__CLASS__, 'unregister_form_block'], 10);
     }
 
     /**
@@ -203,6 +205,33 @@ class GravityForms
         }
 
         return $choices;
+    }
+
+    /**
+     * Disallow Gravity Forms form block
+     *
+     * @param array $allowed_blocks Allowed blocks
+     * @param array $block_editor_context Block editor context
+     * @return array Filtered allowed blocks
+     */
+    public static function disallow_form_block($allowed_blocks, $block_editor_context) {
+        if (!is_array($allowed_blocks)) {
+            $allowed_blocks = array_keys(\WP_Block_Type_Registry::get_instance()->get_all_registered());
+        }
+        
+        $blocked = ['gravityforms/form', 'gravityforms/conditional-block'];
+        return array_diff($allowed_blocks, $blocked);
+    }
+
+    /**
+     * Unregister the Gravity Forms form block
+     *
+     * @return void
+     */
+    public static function unregister_form_block() {
+        if (function_exists('unregister_block_type')) {
+            unregister_block_type('gravityforms/form');
+        }
     }
 
 }
