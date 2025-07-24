@@ -131,7 +131,7 @@ class GravityForms
             $classes .= ' ' . $colour;
         }
 
-        if ($styles = Theme::get_button_styles()) {
+        if ($styles = self::get_button_styles()) {
             foreach ($styles as $key => $label) {
                 if ($form['button_styles_' . $key] ?? false) {
                     $classes .= ' ' . $key;
