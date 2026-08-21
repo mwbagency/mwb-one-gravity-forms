@@ -50,7 +50,7 @@ class GravityForms
         }
 
         // Log missing plugins
-        if(wp_get_environment_type() !== 'production') {
+        if (wp_get_environment_type() !== 'production') {
             foreach ($missing_plugins as $missing_plugin) {
                 error_log("Warning: '$class_name' package requires inactive '$missing_plugin' plugin");
             }
@@ -114,33 +114,60 @@ class GravityForms
     public static function apply_submit_button_classes($button, $form)
     {
         $dom = new \DOMDocument();
-        $dom->loadHTML('<?xml encoding="utf-8" ?>' . $button);
-        $input = $dom->getElementsByTagName('input')->item(0);
-        $new_button = $dom->createElement('button');
-        $new_button->appendChild($dom->createTextNode($input->getAttribute('value')));
-        $input->removeAttribute('value');
 
-        foreach ($input->attributes as $attribute) {
-            $new_button->setAttribute($attribute->name, $attribute->value);
+        $previous_libxml_state = libxml_use_internal_errors(true);
+        $loaded = $dom->loadHTML('<?xml encoding="utf-8" ?>' . $button);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous_libxml_state);
+
+        if (!$loaded) {
+            return $button;
         }
 
-        $input->parentNode->replaceChild($new_button, $input);
+        // Gravity Forms 3.0+ already supplies a <button>.
+        $new_button = $dom->getElementsByTagName('button')->item(0);
+
+        // Support Gravity Forms versions before 3.0.
+        if (!$new_button) {
+            $input = $dom->getElementsByTagName('input')->item(0);
+
+            // Another filter may have returned unexpected markup.
+            if (!$input) {
+                return $button;
+            }
+
+            $new_button = $dom->createElement('button');
+            $new_button->appendChild(
+                $dom->createTextNode($input->getAttribute('value'))
+            );
+
+            foreach ($input->attributes as $attribute) {
+                if ($attribute->name !== 'value') {
+                    $new_button->setAttribute(
+                        $attribute->name,
+                        $attribute->value
+                    );
+                }
+            }
+
+            $input->parentNode->replaceChild($new_button, $input);
+        }
+
         $classes = $new_button->getAttribute('class');
 
         if ($colour = $form['button_colour'] ?? false) {
             $classes .= ' ' . $colour;
         }
 
-        if ($styles = self::get_button_styles()) {
-            foreach ($styles as $key => $label) {
-                if ($form['button_styles_' . $key] ?? false) {
-                    $classes .= ' ' . $key;
-                }
+        foreach (self::get_button_styles() as $key => $label) {
+            if ($form['button_styles_' . $key] ?? false) {
+                $classes .= ' ' . $key;
             }
         }
 
-        $new_button->setAttribute('class', $classes);
-        return $dom->saveHtml($new_button);
+        $new_button->setAttribute('class', trim($classes));
+
+        return $dom->saveHTML($new_button);
     }
 
     /**
@@ -214,11 +241,12 @@ class GravityForms
      * @param array $block_editor_context Block editor context
      * @return array Filtered allowed blocks
      */
-    public static function disallow_form_block($allowed_blocks, $block_editor_context) {
+    public static function disallow_form_block($allowed_blocks, $block_editor_context)
+    {
         if (!is_array($allowed_blocks)) {
             $allowed_blocks = array_keys(\WP_Block_Type_Registry::get_instance()->get_all_registered());
         }
-        
+
         $blocked = ['gravityforms/form', 'gravityforms/conditional-block'];
         return array_diff($allowed_blocks, $blocked);
     }
@@ -228,10 +256,10 @@ class GravityForms
      *
      * @return void
      */
-    public static function unregister_form_block() {
+    public static function unregister_form_block()
+    {
         if (function_exists('unregister_block_type')) {
             unregister_block_type('gravityforms/form');
         }
     }
-
 }
